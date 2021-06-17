@@ -13,6 +13,8 @@ def transform_targets_for_output(y_true, grid_size, anchor_idxs):
     # y_true_out: (N, grid, grid, anchors, [x1, y1, x2, y2, obj, class])
     
     #输出的张量尺寸
+    
+    #tf.shape(anchor_idxs)=3=len(anchor_idxs)
     y_true_out = tf.zeros(
         (N, grid_size, grid_size, tf.shape(anchor_idxs)[0], 6))
 
@@ -67,22 +69,22 @@ def transform_targets_for_output(y_true, grid_size, anchor_idxs):
                 #box 的中点坐标
                 box_xy = (y_true[i][j][0:2] + y_true[i][j][2:4]) / 2
 
+
+                #找到标注的那个box 对应的anchor 对应的位置，这里重新编码了
                 anchor_idx = tf.cast(tf.where(anchor_eq), tf.int32)
-                #这里的anchor_idx就是y_true[i][j][5]
-                print( anchor_idx ,'@@@')
-                print(y_true[i][j][5],'@@@')
+
                 
                 
-                #grid_xy是grid_size*grid_size　这个box下anchor中心的坐标
+                #grid_xy是grid_size*grid_size　这个真实　box下anchor中心的坐标
                 grid_xy = tf.cast(box_xy // (1/grid_size), tf.int32)
 
                 # grid[y][x][anchor] = (tx, ty, bw, bh, obj, class)
                 indexes = indexes.write(
-                    #id   i=样本编号，anchor中心坐标x,y    anchor 种类
+                    #id   i=样本编号(0-6)，anchor中心坐标x,y    anchor 种类取值在[0,1,2]
                     idx, [i, grid_xy[1], grid_xy[0], anchor_idx[0][0]])
                 updates = updates.write(
                     
-                    #对应的标注坐标　和　　　　　　　　　　　类别
+                    #对应的标注坐标　和　　　　　　　　#1只是占位　　类别
                     idx, [box[0], box[1], box[2], box[3], 1, y_true[i][j][4]])
                 idx += 1
 
@@ -102,8 +104,11 @@ def transform_targets_for_output(y_true, grid_size, anchor_idxs):
 
 
 def transform_targets(y_train, anchors, anchor_masks, size):
+    
     y_outs = []
     #将图像分成32*32格
+    
+    #grid_size=13
     grid_size = size // 32
 
     # calculate anchor index for true boxes
@@ -111,7 +116,7 @@ def transform_targets(y_train, anchors, anchor_masks, size):
     
     #anchors 是聚类出来的点,x,y分别是聚类框框的宽度和高度
     
-    #这里是每每个anchor 框框的面积
+    #这里是每个anchor 框框的面积
     anchor_area = anchors[..., 0] * anchors[..., 1]
     
     #box_wh的宽度-高度,　box_wh.shape＝[k, 100, 2],k是样本的数量
@@ -158,9 +163,10 @@ array([[0.55466664, 0.32999998],
     
     #tf.minimum(A,B),　Ａ的维度为mn,B的维度为kn,且m=n,或者　n=1,就可以比较大小
     #intersection是交集
-    
+    #这里用到了矩阵的广播机制，分别与９个anchor box 进行比较
+    #                           delta  x
     intersection = tf.minimum(box_wh[..., 0], anchors[..., 0]) * \
-        tf.minimum(box_wh[..., 1], anchors[..., 1])
+        tf.minimum(box_wh[..., 1], anchors[..., 1])  #delta y
     
     #交并比
     iou = intersection / (box_area + anchor_area - intersection)
