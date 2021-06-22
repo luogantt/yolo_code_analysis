@@ -168,7 +168,7 @@ array([[0.55466664, 0.32999998],
     intersection = tf.minimum(box_wh[..., 0], anchors[..., 0]) * \
         tf.minimum(box_wh[..., 1], anchors[..., 1])  #delta y
     
-    #交并比
+    #交并比y_train
     iou = intersection / (box_area + anchor_area - intersection)
     
     
